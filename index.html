@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>KiPad Studio</title>
+<style>
+:root{
+  --bg:#0a0b0d; --panel:#14161a; --panel2:#1b1e24; --border:#2a2e36;
+  --text:#e8e9ec; --text-dim:#8a8f99; --accent:#e8a33d; --accent-dim:#8a6420;
+  --accent-bg:rgba(232,163,61,0.12); --green:#3fae6a; --red:#d8564a; --cu-f:#c8703a; --cu-b:#3aa0a8;
+  --silk-f:#e8e9ec; --silk-b:#9aa; --edge:#e8c93d; --radius:14px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  overflow:hidden;}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);}
+button{font-family:inherit;}
+.hidden{display:none !important;}
+
+/* ---- header ---- */
+.topbar{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg);}
+.topbar .icon-btn{background:none;border:none;color:var(--text);font-size:20px;padding:4px 8px;cursor:pointer;border-radius:8px;}
+.topbar .icon-btn:active{background:var(--panel2);}
+.app-icon{width:36px;height:36px;border-radius:9px;background:var(--panel2);border:1px solid var(--accent-dim);
+  display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;font-size:15px;flex-shrink:0;}
+.title-block{flex:1;min-width:0;}
+.title-block h1{font-size:16px;margin:0;font-weight:600;line-height:1.2;}
+.title-block p{font-size:12px;margin:1px 0 0;color:var(--text-dim);}
+.badge{font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:20px;background:rgba(63,174,106,.15);color:var(--green);}
+.badge.dim{background:var(--panel2);color:var(--text-dim);}
+
+/* ---- github banner ---- */
+.gh-banner{display:flex;align-items:center;gap:10px;margin:12px 16px 0;padding:12px 14px;background:var(--panel);
+  border:1px solid var(--border);border-radius:12px;font-size:13px;cursor:pointer;}
+.gh-banner .dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);flex-shrink:0;}
+.gh-banner.connected .dot{background:var(--green);}
+.gh-banner span{flex:1;color:var(--text-dim);}
+.gh-banner.connected span{color:var(--text);}
+
+/* ---- board list ---- */
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.board-list{padding:14px 16px 100px;display:flex;flex-direction:column;gap:12px;}
+.board-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;position:relative;cursor:pointer;}
+.board-thumb{height:110px;border-radius:9px;background:#08110c;border:1px solid var(--edge);position:relative;overflow:hidden;margin-bottom:10px;}
+.board-thumb svg{width:100%;height:100%;}
+.board-card h3{margin:0 0 3px;font-size:15px;font-weight:600;}
+.board-card .meta{font-size:12px;color:var(--text-dim);margin-bottom:8px;}
+.board-card .tags{display:flex;gap:6px;}
+.tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;background:var(--panel2);color:var(--text-dim);}
+.tag.local{background:var(--accent-bg);color:var(--accent);}
+.trash-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--text-dim);font-size:16px;cursor:pointer;padding:6px;}
+.empty-state{padding:60px 24px;text-align:center;color:var(--text-dim);}
+.empty-state h3{color:var(--text);font-size:16px;margin-bottom:6px;}
+.empty-state p{font-size:13px;line-height:1.5;}
+
+/* ---- bottom action bar ---- */
+.bottombar{display:flex;gap:8px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--border);
+  background:var(--bg);flex-shrink:0;}
+.btn{flex:1;padding:13px 10px;border-radius:11px;border:1px solid var(--border);background:var(--panel2);
+  color:var(--text);font-size:13px;font-weight:600;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn.primary{background:var(--accent);color:#1a1200;border-color:var(--accent);flex:1.3;}
+.btn.primary:active{background:#d0932f;}
+.btn:active{background:#22252c;}
+.btn.danger{color:var(--red);}
+.btn.small{flex:none;padding:10px 16px;}
+.btn.full{width:100%;}
+.btn:disabled{opacity:.45;}
+
+/* ---- modal / sheet ---- */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:flex;align-items:flex-end;justify-content:center;}
+.overlay.center{align-items:center;}
+.sheet{background:var(--panel);width:100%;max-width:480px;border-radius:20px 20px 0 0;max-height:88vh;
+  display:flex;flex-direction:column;animation:up .18s ease-out;}
+.overlay.center .sheet{border-radius:18px;max-height:82vh;}
+@keyframes up{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+.sheet-handle{width:36px;height:4px;background:var(--border);border-radius:3px;margin:10px auto 2px;flex-shrink:0;}
+.sheet-head{padding:14px 20px 10px;flex-shrink:0;}
+.sheet-head h2{margin:0;font-size:18px;font-weight:700;}
+.sheet-body{overflow-y:auto;padding:0 20px 20px;flex:1;}
+.sheet-foot{padding:14px 20px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0;}
+
+label.field-label{display:block;font-size:12px;font-weight:600;color:var(--text-dim);margin:14px 0 6px;}
+label.field-label:first-child{margin-top:0;}
+input[type=text],input[type=number],input[type=password],textarea,select{
+  width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+  padding:12px 14px;border-radius:10px;font-size:15px;outline:none;}
+input:focus,textarea:focus{border-color:var(--accent);}
+input::placeholder{color:#565b64;}
+
+.tmpl{border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;cursor:pointer;}
+.tmpl.active{border-color:var(--accent);background:var(--accent-bg);}
+.tmpl h4{margin:0 0 2px;font-size:14.5px;}
+.tmpl p{margin:0;font-size:12px;color:var(--text-dim);}
+
+.chip-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;margin-bottom:4px;-webkit-overflow-scrolling:touch;}
+.chip-row::-webkit-scrollbar{display:none;}
+.chip{flex-shrink:0;padding:8px 15px;border-radius:20px;background:var(--panel2);border:1px solid var(--border);
+  font-size:12.5px;font-weight:600;color:var(--text-dim);cursor:pointer;}
+.chip.active{background:var(--accent-bg);border-color:var(--accent-dim);color:var(--accent);}
+
+.fp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fp-card{background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:10px;display:flex;gap:10px;align-items:center;cursor:pointer;}
+.fp-card:active{border-color:var(--accent);}
+.fp-icon{width:40px;height:40px;border-radius:8px;background:#0f1720;border:1px solid var(--accent-dim);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;}
+.fp-card h5{margin:0;font-size:13px;font-weight:600;}
+.fp-card span{font-size:11px;color:var(--text-dim);}
+
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.menu-item{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;}
+.menu-item .mtag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.04em;color:var(--accent);
+  background:var(--accent-bg);padding:2px 6px;border-radius:5px;margin-bottom:8px;}
+.menu-item h4{margin:0 0 2px;font-size:14px;}
+.menu-item p{margin:0;font-size:11.5px;color:var(--text-dim);}
+
+/* ---- editor screen ---- */
+#editorScreen{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg);z-index:5;}
+#editorScreen.active{display:flex;}
+.ed-canvas-wrap{flex:1;position:relative;overflow:hidden;background:#060708;touch-action:none;}
+.zoom-controls{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:8px;z-index:3;}
+.zbtn{width:42px;height:42px;border-radius:11px;background:var(--panel2);border:1px solid var(--border);
+  color:var(--text);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.layer-tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;border-top:1px solid var(--border);
+  background:var(--bg);-webkit-overflow-scrolling:touch;flex-shrink:0;}
+.layer-tabs::-webkit-scrollbar{display:none;}
+.ltab{flex-shrink:0;display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:20px;
+  border:1px solid var(--border);background:var(--panel2);font-size:12.5px;font-weight:600;cursor:pointer;color:var(--text-dim);}
+.ltab.active{border-color:currentColor;color:var(--text);background:var(--panel);}
+.ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.tools{display:flex;justify-content:space-between;padding:8px 6px calc(10px + env(safe-area-inset-bottom));
+  border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;}
+.tool{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 2px;border-radius:10px;
+  cursor:pointer;color:var(--text-dim);}
+.tool.active{color:var(--accent);background:var(--accent-bg);}
+.tool svg{width:20px;height:20px;}
+.tool span{font-size:10px;font-weight:600;}
+.hint-bar{position:absolute;left:12px;right:12px;top:12px;background:rgba(20,22,26,.92);border:1px solid var(--border);
+  border-radius:10px;padding:9px 13px;font-size:12px;color:var(--text-dim);z-index:2;pointer-events:none;}
+
+/* ---- design check / info ---- */
+.warn-row{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);}
+.warn-row:last-child{border-bottom:none;}
+.warn-dot{width:8px;height:8px;border-radius:50%;background:var(--red);margin-top:5px;flex-shrink:0;}
+.warn-dot.ok{background:var(--green);}
+.warn-row .wtext strong{display:block;font-size:13.5px;margin-bottom:2px;}
+.warn-row .wtext span{font-size:12px;color:var(--text-dim);}
+.info-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
+.info-row span:first-child{color:var(--text-dim);}
+.info-row:last-child{border-bottom:none;}
+
+/* ---- github panel ---- */
+.gh-tabs{display:flex;gap:6px;margin-bottom:16px;background:var(--panel2);padding:4px;border-radius:11px;}
+.gh-tab{flex:1;text-align:center;padding:9px;border-radius:8px;font-size:13px;font-weight:600;color:var(--text-dim);cursor:pointer;}
+.gh-tab.active{background:var(--panel);color:var(--text);}
+.gh-user{display:flex;align-items:center;gap:10px;padding:12px;background:var(--panel2);border-radius:11px;margin-bottom:14px;}
+.gh-avatar{width:34px;height:34px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--accent);}
+.gh-user b{font-size:14px;display:block;}
+.gh-user span{font-size:11.5px;color:var(--text-dim);}
+.term{background:#050607;border:1px solid var(--border);border-radius:10px;padding:12px 13px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11.5px;line-height:1.65;color:#8ee08e;max-height:180px;overflow-y:auto;margin-top:12px;white-space:pre-wrap;word-break:break-all;}
+.term .t-cmd{color:#eab676;}
+.term .t-err{color:#e07a7a;}
+.term .t-dim{color:#5f6a5f;}
+.note{font-size:11.5px;color:var(--text-dim);line-height:1.5;background:var(--panel2);border-radius:9px;padding:10px 12px;margin-top:10px;}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1d2026;border:1px solid var(--border);
+  color:var(--text);padding:11px 18px;border-radius:30px;font-size:13px;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ HOME SCREEN ============ -->
+  <div id="homeScreen" style="display:flex;flex-direction:column;height:100%;">
+    <div class="topbar">
+      <div class="app-icon">K</div>
+      <div class="title-block">
+        <h1>KiPad Studio</h1>
+        <p>KiCad-compatible PCB editor</p>
+      </div>
+    </div>
+    <div class="gh-banner" id="ghBanner" onclick="openGithubPanel()">
+      <div class="dot" id="ghDot"></div>
+      <span id="ghBannerText">GitHub not connected — tap to link your account</span>
+    </div>
+    <div class="scroll"><div class="board-list" id="boardList"></div></div>
+    <div class="bottombar">
+      <button class="btn primary" onclick="openNewBoardModal()">+ New board</button>
+      <button class="btn" onclick="triggerImport()">Import KiCad file</button>
+      <button class="btn" onclick="openGithubPanel('pull')">Pull from GitHub</button>
+    </div>
+    <input type="file" id="importFile" accept=".kicad_pcb,.json" class="hidden" onchange="handleImportFile(event)">
+  </div>
+
+  <!-- ============ EDITOR SCREEN ============ -->
+  <div id="editorScreen">
+    <div class="topbar">
+      <button class="icon-btn" onclick="closeEditor()">‹</button>
+      <div class="title-block">
+        <h1 id="edBoardName">board</h1>
+      </div>
+      <span class="badge" id="edSavedBadge">SAVED</span>
+      <button class="icon-btn" onclick="undo()" title="Undo">↶</button>
+      <button class="icon-btn" onclick="redo()" title="Redo">↷</button>
+      <button class="icon-btn" onclick="openBoardMenu()">⋮</button>
+    </div>
+    <div class="ed-canvas-wrap" id="canvasWrap">
+      <div class="hint-bar" id="hintBar">Select tool — tap a part to select, drag to move</div>
+      <svg id="boardSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="zoom-controls">
+        <button class="zbtn" onclick="zoomBy(1.25)">+</button>
+        <button class="zbtn" onclick="zoomBy(0.8)">−</button>
+        <button class="zbtn" onclick="fitBoard()">⤢</button>
+      </div>
+    </div>
+    <div class="layer-tabs" id="layerTabs"></div>
+    <div class="tools" id="toolsBar"></div>
+  </div>
+
+</div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+/* =========================================================================
+   KIPAD STUDIO — data model, footprint library, canvas engine, export, DRC,
+   GitHub sync (token + device-flow-ready), local persistence.
+   ========================================================================= */
+
+const LS_BOARDS = 'kipad_boards_v1';
+const LS_GH = 'kipad_gh_v1';
+const MM = v => Math.round(v*100)/100;
+const uid = () => Math.random().toString(36).slice(2,9);
+
+/* ---------- footprint library ---------- */
+const FP_LIB = {
+  R_0603:  {label:'Resistor 0603',  cat:'Passive', body:{w:1.6,h:0.8},  pads:[{n:'1',x:-0.75,y:0,w:0.65,h:0.8},{n:'2',x:0.75,y:0,w:0.65,h:0.8}], ref:'R'},
+  R_0805:  {label:'Resistor 0805',  cat:'Passive', body:{w:2.0,h:1.25}, pads:[{n:'1',x:-0.9,y:0,w:0.8,h:1.2},{n:'2',x:0.9,y:0,w:0.8,h:1.2}], ref:'R'},
+  R_1206:  {label:'Resistor 1206',  cat:'Passive', body:{w:3.2,h:1.6},  pads:[{n:'1',x:-1.4,y:0,w:1.0,h:1.5},{n:'2',x:1.4,y:0,w:1.0,h:1.5}], ref:'R'},
+  R_Axial: {label:'Resistor axial 10mm', cat:'Passive', body:{w:10,h:2.5}, pads:[{n:'1',x:-5,y:0,w:1.6,h:1.6,round:true},{n:'2',x:5,y:0,w:1.6,h:1.6,round:true}], ref:'R'},
+  C_0603:  {label:'Capacitor 0603', cat:'Passive', body:{w:1.6,h:0.8}, pads:[{n:'1',x:-0.75,y:0,w:0.65,h:0.8},{n:'2',x:0.75,y:0,w:0.65,h:0.8}], ref:'C'},
+  C_0805:  {label:'Capacitor 0805', cat:'Passive', body:{w:2.0,h:1.25},pads:[{n:'1',x:-0.9,y:0,w:0.8,h:1.2},{n:'2',x:0.9,y:0,w:0.8,h:1.2}], ref:'C'},
+  C_1206:  {label:'Capacitor 1206', cat:'Passive', body:{w:3.2,h:1.6}, pads:[{n:'1',x:-1.4,y:0,w:1.0,h:1.5},{n:'2',x:1.4,y:0,w:1.0,h:1.5}], ref:'C'},
+  C_Disc:  {label:'Ceramic disc 5mm', cat:'Passive', body:{w:5,h:5,disc:true}, pads:[{n:'1',x:-2.5,y:0,w:1.4,h:1.4,round:true},{n:'2',x:2.5,y:0,w:1.4,h:1.4,round:true}], ref:'C'},
+  CP_Radial:{label:'Electrolytic 8mm', cat:'Passive', body:{w:8,h:8,disc:true}, pads:[{n:'1',x:-2,y:0,w:1.7,h:1.7,round:true,plus:true},{n:'2',x:2,y:0,w:1.7,h:1.7,round:true}], ref:'C'},
+  L_0805:  {label:'Inductor 0805', cat:'Passive', body:{w:2.0,h:1.25}, pads:[{n:'1',x:-0.9,y:0,w:0.8,h:1.2},{n:'2',x:0.9,y:0,w:0.8,h:1.2}], ref:'L'},
+  LED_0805:{label:'LED 0805', cat:'Misc', body:{w:2.0,h:1.25}, pads:[{n:'K',x:-0.9,y:0,w:0.8,h:1.2},{n:'A',x:0.9,y:0,w:0.8,h:1.2}], ref:'D', ledColor:'#e8a33d'},
+  D_SOD123:{label:'Diode SOD-123', cat:'Misc', body:{w:2.7,h:1.4}, pads:[{n:'K',x:-1.4,y:0,w:0.9,h:1.2},{n:'A',x:1.4,y:0,w:0.9,h:1.2}], ref:'D'},
+  DIP8:    {label:'DIP-8 (e.g. NE555)', cat:'IC', body:{w:9.8,h:6.4}, ref:'U', dip:8, pitch:2.54},
+  DIP14:   {label:'DIP-14', cat:'IC', body:{w:19.3,h:6.4}, ref:'U', dip:14, pitch:2.54},
+  SOIC8:   {label:'SOIC-8', cat:'IC', body:{w:4.9,h:3.9}, ref:'U', dip:8, pitch:1.27, smd:true},
+  USB_C:   {label:'USB-C receptacle', cat:'Connector', body:{w:9,h:7.5}, ref:'J',
+    pads:[{n:'1',x:-3.5,y:2.6,w:0.9,h:1.2},{n:'2',x:-2.1,y:2.6,w:0.9,h:1.2},{n:'3',x:-0.7,y:2.6,w:0.9,h:1.2},
+          {n:'4',x:0.7,y:2.6,w:0.9,h:1.2},{n:'5',x:2.1,y:2.6,w:0.9,h:1.2},{n:'6',x:3.5,y:2.6,w:0.9,h:1.2}]},
+  TERM2:   {label:'2-pin terminal block', cat:'Connector', body:{w:5,h:6.5}, ref:'J',
+    pads:[{n:'1',x:-1.25,y:0,w:1.7,h:2.4,round:true},{n:'2',x:1.25,y:0,w:1.7,h:2.4,round:true}]},
+};
+function fpPads(def){
+  if(def.pads) return def.pads;
+  if(def.dip){
+    const n=def.dip, half=n/2, pitch=def.pitch, rowY=def.body.h/2-1.0;
+    const pads=[];
+    for(let i=0;i<half;i++) pads.push({n:String(i+1), x:(-((half-1)/2)+i)*pitch, y: def.smd? rowY : -def.body.h/2-0.4, w:0.6,h:1.2});
+    for(let i=0;i<half;i++) pads.push({n:String(n-i), x:(-((half-1)/2)+i)*pitch, y: def.smd? -rowY : def.body.h/2+0.4, w:0.6,h:1.2});
+    return pads;
+  }
+  return [];
+}
+
+/* ---------- board templates ---------- */
+const TEMPLATES = {
+  blank: {label:'Blank board', desc:'100 × 80 mm rectangle', w:100,h:80, parts:[]},
+  blinker: {label:'555 LED blinker', desc:'NE555 + 10 parts demo', w:60,h:50, parts:[
+    {type:'DIP8', x:20,y:15,rot:0,ref:'U1'},
+    {type:'R_1206', x:8,y:15,rot:90,ref:'R1'},
+    {type:'R_1206', x:8,y:26,rot:90,ref:'R2'},
+    {type:'CP_Radial', x:14,y:36,rot:0,ref:'C1'},
+    {type:'C_0805', x:32,y:8,rot:0,ref:'C2'},
+    {type:'LED_0805', x:44,y:15,rot:0,ref:'D1'},
+    {type:'R_0805', x:44,y:24,rot:0,ref:'R3'},
+    {type:'TERM2', x:52,y:38,rot:0,ref:'J1'},
+  ]},
+  usb: {label:'USB breakout', desc:'USB-C power breakout', w:30,h:20, parts:[
+    {type:'USB_C', x:15,y:6,rot:0,ref:'J1'},
+    {type:'C_0805', x:8,y:15,rot:0,ref:'C1'},
+    {type:'C_0805', x:22,y:15,rot:0,ref:'C2'},
+    {type:'TERM2', x:15,y:16,rot:0,ref:'J2'},
+  ]},
+};
+
+/* ---------- persistence ---------- */
+function loadBoards(){ try{ return JSON.parse(localStorage.getItem(LS_BOARDS))||[]; }catch(e){ return []; } }
+function saveBoards(list){ try{ localStorage.setItem(LS_BOARDS, JSON.stringify(list)); }catch(e){} }
+function loadGh(){ try{ return JSON.parse(localStorage.getItem(LS_GH))||{}; }catch(e){ return {}; } }
+function saveGh(d){ try{ localStorage.setItem(LS_GH, JSON.stringify(d)); }catch(e){} }
+
+let boards = loadBoards();
+let gh = loadGh();               // {token, login, owner, repo, branch}
+let current = null;              // active board (deep working copy)
+let history = [], future = [];   // undo/redo stacks (JSON snapshots)
+let dirty = false;
+
+/* ---------- toast ---------- */
+function toast(msg){
+  const el = document.createElement('div'); el.className='toast'; el.textContent=msg;
+  document.getElementById('toastRoot').appendChild(el);
+  setTimeout(()=>el.remove(), 2200);
+}
+
+/* =========================== HOME SCREEN =========================== */
+function renderHome(){
+  refreshGhBanner();
+  const list = document.getElementById('boardList');
+  if(boards.length===0){
+    list.innerHTML = `<div class="empty-state"><h3>No boards yet</h3><p>Start a new board, import a .kicad_pcb file, or pull one from a connected GitHub repo.</p></div>`;
+    return;
+  }
+  list.innerHTML = boards.slice().sort((a,b)=>b.updated-a.updated).map(b=>`
+    <div class="board-card" onclick="openBoard('${b.id}')">
+      <button class="trash-btn" onclick="event.stopPropagation(); deleteBoard('${b.id}')">🗑</button>
+      <div class="board-thumb">${thumbSvg(b)}</div>
+      <h3>${esc(b.name)}</h3>
+      <div class="meta">${b.w} × ${b.h} mm · ${b.parts.length} parts · ${new Date(b.updated).toLocaleString()}</div>
+      <div class="tags"><span class="tag local">LOCAL</span><span class="tag">${objCount(b)} OBJ</span></div>
+    </div>`).join('');
+}
+function objCount(b){ return b.parts.length + b.traces.length + b.vias.length + (b.texts?b.texts.length:0); }
+function thumbSvg(b){
+  const pad=4, sc = 90/Math.max(b.w,b.h);
+  let inner = b.parts.map(p=>`<rect x="${p.x*sc-2}" y="${p.y*sc-1.2}" width="4" height="2.4" fill="#e8a33d" opacity=".85"/>`).join('');
+  return `<svg viewBox="0 0 ${b.w*sc+pad*2} ${b.h*sc+pad*2}">
+    <rect x="${pad}" y="${pad}" width="${b.w*sc}" height="${b.h*sc}" fill="#08110c" stroke="#e8c93d" stroke-width="1"/>
+    <g transform="translate(${pad},${pad})">${inner}</g></svg>`;
+}
+function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function deleteBoard(id){
+  confirmDialog('Delete board?','This removes it from this device. It cannot be undone.', ()=>{
+    boards = boards.filter(b=>b.id!==id); saveBoards(boards); renderHome();
+    toast('Project deleted');
+  });
+}
+
+/* ---------- new board modal ---------- */
+let chosenTemplate = 'blank';
+function openNewBoardModal(){
+  chosenTemplate = 'blank';
+  const n = nextBoardName();
+  showSheet(`
+    <div class="sheet-head"><h2>New board</h2></div>
+    <div class="sheet-body">
+      <label class="field-label">Project name</label>
+      <input type="text" id="nbName" placeholder="${n}">
+      <label class="field-label">Template</label>
+      <div id="tmplList"></div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="createBoardFromModal()">Create</button>
+    </div>`);
+  renderTemplateList();
+}
+function renderTemplateList(){
+  document.getElementById('tmplList').innerHTML = Object.entries(TEMPLATES).map(([k,t])=>`
+    <div class="tmpl ${k===chosenTemplate?'active':''}" onclick="chosenTemplate='${k}';renderTemplateList()">
+      <h4>${t.label}</h4><p>${t.w} × ${t.h} mm rectangle${t.parts.length?` · ${t.parts.length} parts demo`:''}</p>
+    </div>`).join('');
+}
+function nextBoardName(){
+  let i=1; while(boards.some(b=>b.name==='my-board'+(i===1?'':'-'+i))) i++;
+  return 'my-board'+(i===1?'':'-'+i);
+}
+function createBoardFromModal(){
+  const name = document.getElementById('nbName').value.trim() || nextBoardName();
+  const t = TEMPLATES[chosenTemplate];
+  const b = {
+    id: uid(), name, w:t.w, h:t.h, created:Date.now(), updated:Date.now(),
+    grid:1.0, traceWidth:0.25,
+    parts: t.parts.map(p=>({id:uid(), type:p.type, x:p.x, y:p.y, rot:p.rot||0, ref:p.ref})),
+    traces: [], vias: [], texts: []
+  };
+  boards.push(b); saveBoards(boards); closeModal(); renderHome(); openBoard(b.id);
+}
+
+/* =========================== EDITOR SCREEN =========================== */
+let tool = 'select';
+let activeLayer = 'F.Cu';
+let zoom = 8; // px per mm
+let selection = null; // {kind:'part'|'via'|'text'|'trace', id}
+let dragging = null;
+let traceStart = null;
+let panState = null;
+
+const LAYERS = [
+  {id:'F.Cu', label:'Front Cu', color:'var(--cu-f)'},
+  {id:'B.Cu', label:'Back Cu', color:'var(--cu-b)'},
+  {id:'F.Silk', label:'Silk F', color:'var(--silk-f)'},
+  {id:'B.Silk', label:'Silk B', color:'var(--silk-b)'},
+  {id:'Edge', label:'Edge', color:'var(--edge)'},
+];
+const TOOLS = [
+  {id:'select', label:'Select', icon:'M4 3l7 16 2-6 6-2z'},
+  {id:'pan', label:'Pan', icon:'M9 3v6M9 3L6 6M9 3l3 3M9 15v6M9 21l-3-3M9 21l3-3M3 9h6M3 9l3-3M3 9l3 3M15 9h6M21 9l-3-3M21 9l-3 3'},
+  {id:'trace', label:'Trace', icon:'M4 18L10 8h4l6-4'},
+  {id:'via', label:'Via', icon:'M12 12m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0M12 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0'},
+  {id:'pad', label:'Pad', icon:'M6 9h12v6H6z'},
+  {id:'part', label:'Part', icon:'M4 4h7v7H4zM13 13h7v7h-7zM13 4h7v4h-7zM4 13h4v7H4z'},
+  {id:'text', label:'Text', icon:'M5 5h14M12 5v14'},
+];
+
+function openBoard(id){
+  current = JSON.parse(JSON.stringify(boards.find(b=>b.id===id)));
+  history=[]; future=[]; dirty=false; tool='select'; activeLayer='F.Cu'; selection=null;
+  document.getElementById('edBoardName').textContent = current.name;
+  document.getElementById('editorScreen').classList.add('active');
+  renderLayerTabs(); renderTools(); 
+  setTimeout(()=>{ fitBoard(); renderCanvas(); }, 0);
+}
+function closeEditor(){
+  document.getElementById('editorScreen').classList.remove('active');
+  persistCurrent();
+  renderHome();
+}
+function persistCurrent(){
+  if(!current) return;
+  current.updated = Date.now();
+  const i = boards.findIndex(b=>b.id===current.id);
+  if(i>=0) boards[i] = JSON.parse(JSON.stringify(current)); else boards.push(JSON.parse(JSON.stringify(current)));
+  saveBoards(boards);
+  document.getElementById('edSavedBadge').textContent='SAVED';
+}
+function markDirty(){
+  dirty = true;
+  document.getElementById('edSavedBadge').textContent='UNSAVED';
+  clearTimeout(markDirty._t);
+  markDirty._t = setTimeout(persistCurrent, 600);
+}
+function pushHistory(){ history.push(JSON.stringify(current)); if(history.length>60) history.shift(); future=[]; }
+function undo(){ if(!history.length) return; future.push(JSON.stringify(current)); current=JSON.parse(history.pop()); renderCanvas(); markDirty(); }
+function redo(){ if(!future.length) return; history.push(JSON.stringify(current)); current=JSON.parse(future.pop()); renderCanvas(); markDirty(); }
+
+function renderLayerTabs(){
+  document.getElementById('layerTabs').innerHTML = LAYERS.map(l=>`
+    <div class="ltab ${l.id===activeLayer?'active':''}" style="color:${l.id===activeLayer?l.color:''}" onclick="setLayer('${l.id}')">
+      <span class="ldot" style="background:${l.color}"></span>${l.label}</div>`).join('');
+}
+function setLayer(id){ activeLayer=id; renderLayerTabs(); }
+function renderTools(){
+  document.getElementById('toolsBar').innerHTML = TOOLS.map(t=>`
+    <div class="tool ${t.id===tool?'active':''}" onclick="setTool('${t.id}')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="${t.icon}"/></svg>
+      <span>${t.label}</span></div>`).join('');
+  updateHint();
+}
+const HINTS = {
+  select:'Select tool — tap a part to select, drag to move',
+  pan:'Pan tool — drag to move around the board',
+  trace:'Trace tool — tap a start point, then an end point',
+  via:'Via tool — tap the board to drop a via',
+  pad:'Pad tool — tap to drop a bare pad on the current layer',
+  part:'Part tool — choose a footprint, then tap the board to place it',
+  text:'Text tool — tap the board to add a label',
+};
+function updateHint(){ document.getElementById('hintBar').textContent = HINTS[tool]; }
+function setTool(t){
+  tool=t; selection=null; traceStart=null;
+  if(t==='part'){ openFootprintPicker(); tool='select'; renderTools(); return; }
+  renderTools(); renderCanvas();
+}
+
+/* ---------- canvas geometry ---------- */
+let panOffsetX = 0, panOffsetY = 0;
+function fitBoard(){
+  const wrap = document.getElementById('canvasWrap');
+  const w = wrap.clientWidth-24, h = wrap.clientHeight-24;
+  zoom = Math.max(2, Math.min(w/current.w, h/current.h));
+  panOffsetX = 0; panOffsetY = 0;
+  renderCanvas();
+}
+function zoomBy(f){ zoom = Math.max(1.5, Math.min(60, zoom*f)); renderCanvas(); }
+
+function renderCanvas(){
+  if(!current) return;
+  const svg = document.getElementById('boardSvg');
+  const wrap = document.getElementById('canvasWrap');
+  const vw = wrap.clientWidth, vh = wrap.clientHeight;
+  const bw = current.w*zoom, bh = current.h*zoom;
+  const ox = Math.max(12,(vw-bw)/2) + panOffsetX, oy = Math.max(12,(vh-bh)/2) + panOffsetY;
+  svg.setAttribute('width', vw); svg.setAttribute('height', vh);
+  svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
+  svg._ox=ox; svg._oy=oy;
+
+  let s = `<rect x="0" y="0" width="${vw}" height="${vh}" fill="#060708"/>`;
+  s += gridPattern(ox,oy,bw,bh);
+  s += `<rect x="${ox}" y="${oy}" width="${bw}" height="${bh}" fill="#08110c" stroke="var(--edge)" stroke-width="1.5"/>`;
+
+  // traces
+  current.traces.forEach(t=>{
+    const col = t.layer==='B.Cu'?'var(--cu-b)':'var(--cu-f)';
+    const sel = selection && selection.kind==='trace' && selection.id===t.id;
+    s += `<line x1="${ox+t.x1*zoom}" y1="${oy+t.y1*zoom}" x2="${ox+t.x2*zoom}" y2="${oy+t.y2*zoom}"
+      stroke="${col}" stroke-width="${Math.max(2,t.w*zoom)}" stroke-linecap="round"
+      opacity="${sel?1:0.85}" ${sel?'stroke-dasharray="4 3"':''}
+      onclick="selectObj('trace','${t.id}',event)"/>`;
+  });
+  // vias
+  current.vias.forEach(v=>{
+    const sel = selection && selection.kind==='via' && selection.id===v.id;
+    const r = Math.max(3, v.size*zoom/2);
+    s += `<circle cx="${ox+v.x*zoom}" cy="${oy+v.y*zoom}" r="${r}" fill="#c9762f" stroke="${sel?'var(--accent)':'#5a3a10'}" stroke-width="${sel?2:1}"
+      onclick="selectObj('via','${v.id}',event)"/>
+      <circle cx="${ox+v.x*zoom}" cy="${oy+v.y*zoom}" r="${Math.max(1,v.drill*zoom/2)}" fill="#08110c"/>`;
+  });
+  // parts
+  current.parts.forEach(p=>{ s += partSvg(p, ox, oy); });
+  // texts
+  (current.texts||[]).forEach(t=>{
+    const sel = selection && selection.kind==='text' && selection.id===t.id;
+    s += `<text x="${ox+t.x*zoom}" y="${oy+t.y*zoom}" fill="var(--silk-f)" font-size="${Math.max(8,zoom*0.9)}"
+      font-family="monospace" onclick="selectObj('text','${t.id}',event)" style="${sel?'text-decoration:underline':''}">${esc(t.text)}</text>`;
+  });
+  // trace-in-progress ghost
+  if(tool==='trace' && traceStart){
+    s += `<circle cx="${ox+traceStart.x*zoom}" cy="${oy+traceStart.y*zoom}" r="4" fill="none" stroke="var(--accent)" stroke-width="1.5"/>`;
+  }
+
+  svg.innerHTML = s;
+  svg.onpointerdown = onCanvasDown;
+}
+function gridPattern(ox,oy,bw,bh){
+  const g = current.grid*zoom; if(g<6) return '';
+  let lines='';
+  for(let x=0;x<=bw+0.01;x+=g) lines+=`<line x1="${ox+x}" y1="${oy}" x2="${ox+x}" y2="${oy+bh}" stroke="#182018" stroke-width="1"/>`;
+  for(let y=0;y<=bh+0.01;y+=g) lines+=`<line x1="${ox}" y1="${oy+y}" x2="${ox+bw}" y2="${oy+y}" stroke="#182018" stroke-width="1"/>`;
+  return lines;
+}
+function partSvg(p, ox, oy){
+  const def = FP_LIB[p.type]; if(!def) return '';
+  const cx = ox+p.x*zoom, cy = oy+p.y*zoom;
+  const sel = selection && selection.kind==='part' && selection.id===p.id;
+  const bw = def.body.w*zoom, bh = def.body.h*zoom;
+  let g = `<g transform="translate(${cx},${cy}) rotate(${p.rot||0})" onpointerdown="startDragPart(event,'${p.id}')" onclick="selectObj('part','${p.id}',event)">`;
+  if(def.body.disc){
+    g += `<circle r="${bw/2}" fill="none" stroke="${sel?'var(--accent)':'var(--silk-f)'}" stroke-width="${sel?2:1}"/>`;
+  } else {
+    g += `<rect x="${-bw/2}" y="${-bh/2}" width="${bw}" height="${bh}" fill="none" stroke="${sel?'var(--accent)':'var(--silk-f)'}" stroke-width="${sel?2:1}" rx="1.5"/>`;
+  }
+  if(def.ledColor) g += `<circle r="${Math.min(bw,bh)/3}" fill="${def.ledColor}" opacity=".8"/>`;
+  fpPads(def).forEach(pad=>{
+    const pw = pad.w*zoom, ph = pad.h*zoom;
+    if(pad.round){
+      g += `<circle cx="${pad.x*zoom}" cy="${pad.y*zoom}" r="${Math.max(2,Math.min(pw,ph)/2)}" fill="#e8a33d" stroke="#5a3a10" stroke-width=".6"/>`;
+    } else {
+      g += `<rect x="${pad.x*zoom-pw/2}" y="${pad.y*zoom-ph/2}" width="${pw}" height="${ph}" fill="#e8a33d" stroke="#5a3a10" stroke-width=".6"/>`;
+    }
+  });
+  g += `<text y="${-bh/2-4}" text-anchor="middle" fill="var(--silk-f)" font-size="${Math.max(7,zoom*0.55)}" font-family="monospace">${p.ref}</text>`;
+  g += `</g>`;
+  return g;
+}
+
+/* ---------- pointer interaction ---------- */
+function svgPointToMm(svg, clientX, clientY){
+  const rect = svg.getBoundingClientRect();
+  const x = (clientX-rect.left - svg._ox)/zoom;
+  const y = (clientY-rect.top - svg._oy)/zoom;
+  return {x:MM(x), y:MM(y)};
+}
+function snap(v){ const g=current.grid||1; return Math.round(v/g)*g; }
+
+function onCanvasDown(ev){
+  const svg = ev.currentTarget;
+  const pt = svgPointToMm(svg, ev.clientX, ev.clientY);
+  if(tool==='pan'){
+    panState = {startX:ev.clientX, startY:ev.clientY, px:panOffsetX, py:panOffsetY};
+    document.onpointermove = e=>{
+      panOffsetX = panState.px + (e.clientX-panState.startX);
+      panOffsetY = panState.py + (e.clientY-panState.startY);
+      renderCanvas();
+    };
+    document.onpointerup = ()=>{ document.onpointermove=null; document.onpointerup=null; };
+    return;
+  }
+  if(tool==='via'){
+    pushHistory();
+    current.vias.push({id:uid(), x:snap(pt.x), y:snap(pt.y), size:0.8, drill:0.4});
+    markDirty(); renderCanvas(); return;
+  }
+  if(tool==='pad'){
+    pushHistory();
+    current.parts.push({id:uid(), type:'TERM2', x:snap(pt.x), y:snap(pt.y), rot:0, ref:'PAD'+(current.parts.length+1)});
+    markDirty(); renderCanvas(); return;
+  }
+  if(tool==='trace'){
+    if(!traceStart){ traceStart = {x:snap(pt.x), y:snap(pt.y)}; renderCanvas(); }
+    else {
+      pushHistory();
+      current.traces.push({id:uid(), x1:traceStart.x, y1:traceStart.y, x2:snap(pt.x), y2:snap(pt.y), w:current.traceWidth||0.25, layer:activeLayer==='B.Cu'?'B.Cu':'F.Cu'});
+      traceStart=null; markDirty(); renderCanvas();
+    }
+    return;
+  }
+  if(tool==='text'){
+    const txt = prompt('Text label:', 'REF**');
+    if(txt){ pushHistory(); (current.texts=current.texts||[]).push({id:uid(), x:snap(pt.x), y:snap(pt.y), text:txt, layer:'F.Silk'}); markDirty(); renderCanvas(); }
+    return;
+  }
+  if(tool==='select'){ selection=null; renderCanvas(); }
+}
+function selectObj(kind,id,ev){ if(ev) ev.stopPropagation(); if(tool!=='select') return; selection={kind,id}; renderCanvas(); openInspector(); }
+function startDragPart(ev, id){
+  if(tool!=='select') return;
+  ev.stopPropagation();
+  const svg = document.getElementById('boardSvg');
+  const part = current.parts.find(p=>p.id===id);
+  selection = {kind:'part', id};
+  let moved=false;
+  const startPt = svgPointToMm(svg, ev.clientX, ev.clientY);
+  const orig = {x:part.x, y:part.y};
+  pushHistory();
+  document.onpointermove = e=>{
+    const pt = svgPointToMm(svg, e.clientX, e.clientY);
+    part.x = snap(orig.x + (pt.x-startPt.x));
+    part.y = snap(orig.y + (pt.y-startPt.y));
+    moved=true; renderCanvas();
+  };
+  document.onpointerup = ()=>{
+    document.onpointermove=null; document.onpointerup=null;
+    if(!moved) history.pop();
+    else markDirty();
+    renderCanvas();
+  };
+}
+
+/* ---------- inspector (rotate / delete selected) ---------- */
+function openInspector(){
+  if(!selection) return;
+  let body='';
+  if(selection.kind==='part'){
+    const p = current.parts.find(x=>x.id===selection.id);
+    body = `<label class="field-label">Reference</label><input type="text" id="inspRef" value="${esc(p.ref)}">
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="btn" onclick="rotateSelected()">Rotate 90°</button>
+        <button class="btn danger" onclick="deleteSelected()">Delete</button>
+      </div>`;
+  } else {
+    body = `<div style="display:flex;gap:10px;"><button class="btn danger full" onclick="deleteSelected()">Delete</button></div>`;
+  }
+  showSheet(`<div class="sheet-head"><h2>${selection.kind}</h2></div><div class="sheet-body">${body}</div>
+    <div class="sheet-foot"><button class="btn full" onclick="applyInspector()">Done</button></div>`);
+}
+function applyInspector(){
+  if(selection && selection.kind==='part'){
+    const p = current.parts.find(x=>x.id===selection.id);
+    const v = document.getElementById('inspRef'); if(v) p.ref = v.value.trim()||p.ref;
+    markDirty();
+  }
+  closeModal(); renderCanvas();
+}
+function rotateSelected(){
+  const p = current.parts.find(x=>x.id===selection.id);
+  p.rot = ((p.rot||0)+90)%360; markDirty(); renderCanvas();
+}
+function deleteSelected(){
+  pushHistory();
+  if(selection.kind==='part') current.parts = current.parts.filter(p=>p.id!==selection.id);
+  if(selection.kind==='via') current.vias = current.vias.filter(v=>v.id!==selection.id);
+  if(selection.kind==='trace') current.traces = current.traces.filter(t=>t.id!==selection.id);
+  if(selection.kind==='text') current.texts = current.texts.filter(t=>t.id!==selection.id);
+  selection=null; markDirty(); closeModal(); renderCanvas();
+}
+
+/* ---------- footprint picker ---------- */
+let fpFilter='All', fpQuery='';
+function openFootprintPicker(){
+  fpFilter='All'; fpQuery='';
+  showSheet(`
+    <div class="sheet-head"><h2>Place a footprint</h2>
+      <input type="text" id="fpSearch" placeholder="Search footprints (R, C, DIP, SOIC...)" oninput="fpQuery=this.value;renderFpGrid()" style="margin-top:10px;">
+      <div class="chip-row" id="fpChips" style="margin-top:12px;"></div>
+    </div>
+    <div class="sheet-body"><div class="fp-grid" id="fpGrid"></div></div>
+    <div class="sheet-foot"><button class="btn full" onclick="closeModal()">Close</button></div>`);
+  renderFpChips(); renderFpGrid();
+}
+function renderFpChips(){
+  const cats = ['All','Passive','IC','Power','Connector','Misc'];
+  document.getElementById('fpChips').innerHTML = cats.map(c=>`<div class="chip ${c===fpFilter?'active':''}" onclick="fpFilter='${c}';renderFpChips();renderFpGrid()">${c}</div>`).join('');
+}
+function renderFpGrid(){
+  const q = fpQuery.toLowerCase();
+  const entries = Object.entries(FP_LIB).filter(([k,d])=>
+    (fpFilter==='All'||d.cat===fpFilter) && (!q || k.toLowerCase().includes(q) || d.label.toLowerCase().includes(q)));
+  document.getElementById('fpGrid').innerHTML = entries.map(([k,d])=>`
+    <div class="fp-card" onclick="pickFootprint('${k}')">
+      <div class="fp-icon">${fpIconSvg(k,d)}</div>
+      <div><h5>${k}</h5><span>${d.label}</span></div>
+    </div>`).join('') || `<p style="color:var(--text-dim);font-size:13px;">No footprints match.</p>`;
+}
+function fpIconSvg(k,d){
+  const w=Math.min(28,d.body.w*3), h=Math.min(20,d.body.h*3);
+  return `<svg width="26" height="26" viewBox="-16 -16 32 32"><rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" fill="none" stroke="#e8a33d" stroke-width="1.4" rx="1"/></svg>`;
+}
+let pendingPlaceType = null;
+function pickFootprint(type){
+  pendingPlaceType = type;
+  closeModal();
+  tool='part-placing'; updateHint(); document.getElementById('hintBar').textContent = `Tap the board to place ${type}`;
+  const svg = document.getElementById('boardSvg');
+  svg.onpointerdown = (ev)=>{
+    const pt = svgPointToMm(svg, ev.clientX, ev.clientY);
+    const def = FP_LIB[type];
+    pushHistory();
+    const refCount = current.parts.filter(p=>p.type.startsWith(def.ref)|| p.ref[0]===def.ref).length+1;
+    current.parts.push({id:uid(), type, x:snap(pt.x), y:snap(pt.y), rot:0, ref: def.ref+refCount});
+    markDirty();
+    tool='select'; renderTools(); renderCanvas();
+    svg.onpointerdown = onCanvasDown;
+  };
+}
+
+/* =========================== BOARD MENU SHEET =========================== */
+function openBoardMenu(){
+  showSheet(`
+    <div class="sheet-head"><h2>Board menu</h2></div>
+    <div class="sheet-body"><div class="menu-grid">
+      <div class="menu-item" onclick="menuSaveLocally()"><span class="mtag">SAVE</span><h4>Save locally</h4><p id="mSaveStatus">all saved</p></div>
+      <div class="menu-item" onclick="closeModal();openGithubPanel()"><span class="mtag">SYNC</span><h4>Sync to GitHub</h4><p>${gh.token?('as '+esc(gh.login||'connected')):'not configured'}</p></div>
+      <div class="menu-item" onclick="exportKicadPcb()"><span class="mtag">EXP</span><h4>Export .kicad_pcb</h4><p>opens in KiCad desktop</p></div>
+      <div class="menu-item" onclick="exportKicadPro()"><span class="mtag">EXP</span><h4>Export .kicad_pro</h4><p>project file</p></div>
+      <div class="menu-item" onclick="openBoardSetup()"><span class="mtag">SET</span><h4>Board &amp; grid setup</h4><p>size, grid, trace width</p></div>
+      <div class="menu-item" onclick="runDesignCheck()"><span class="mtag">CHK</span><h4>Check design</h4><p>spacing warnings</p></div>
+      <div class="menu-item" onclick="openBoardInfo()"><span class="mtag">INF</span><h4>Board info</h4><p>objects &amp; stats</p></div>
+    </div></div>`);
+}
+function menuSaveLocally(){ persistCurrent(); const el=document.getElementById('mSaveStatus'); if(el) el.textContent='all saved'; toast('Saved locally'); }
+
+/* ---------- board & grid setup ---------- */
+function openBoardSetup(){
+  showSheet(`
+    <div class="sheet-head"><h2>Board &amp; grid setup</h2></div>
+    <div class="sheet-body">
+      <label class="field-label">Board width (mm)</label><input type="number" id="setW" value="${current.w}" step="1">
+      <label class="field-label">Board height (mm)</label><input type="number" id="setH" value="${current.h}" step="1">
+      <label class="field-label">Grid size (mm)</label><input type="number" id="setGrid" value="${current.grid}" step="0.1">
+      <label class="field-label">Default trace width (mm)</label><input type="number" id="setTW" value="${current.traceWidth}" step="0.05">
+    </div>
+    <div class="sheet-foot"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="applyBoardSetup()">Apply</button></div>`);
+}
+function applyBoardSetup(){
+  pushHistory();
+  current.w = parseFloat(document.getElementById('setW').value)||current.w;
+  current.h = parseFloat(document.getElementById('setH').value)||current.h;
+  current.grid = parseFloat(document.getElementById('setGrid').value)||current.grid;
+  current.traceWidth = parseFloat(document.getElementById('setTW').value)||current.traceWidth;
+  markDirty(); closeModal(); fitBoard();
+}
+
+/* ---------- design rule check ---------- */
+function bbox(p){
+  const def=FP_LIB[p.type]; const w=def.body.w, h=def.body.h;
+  const rotSwap = (p.rot||0)%180===90;
+  const ww = rotSwap?h:w, hh = rotSwap?w:h;
+  return {x1:p.x-ww/2, y1:p.y-hh/2, x2:p.x+ww/2, y2:p.y+hh/2};
+}
+function overlap(a,b,clearance){
+  return !(a.x2+clearance<b.x1 || b.x2+clearance<a.x1 || a.y2+clearance<b.y1 || b.y2+clearance<a.y1);
+}
+function runDesignCheck(){
+  const CLR = 0.2; // mm minimum clearance
+  const warnings = [];
+  // footprint-footprint clearance / overlap
+  for(let i=0;i<current.parts.length;i++){
+    for(let j=i+1;j<current.parts.length;j++){
+      const a=bbox(current.parts[i]), b=bbox(current.parts[j]);
+      if(overlap(a,b,CLR)){
+        warnings.push({sev:'err', title:`${current.parts[i].ref} too close to ${current.parts[j].ref}`, detail:`Courtyards overlap or clearance below ${CLR}mm.`});
+      }
+    }
+  }
+  // parts outside board
+  current.parts.forEach(p=>{
+    const b=bbox(p);
+    if(b.x1<0||b.y1<0||b.x2>current.w||b.y2>current.h){
+      warnings.push({sev:'err', title:`${p.ref} is off the board edge`, detail:`Part extends outside the ${current.w}×${current.h}mm outline.`});
+    }
+  });
+  // vias outside board
+  current.vias.forEach((v,i)=>{
+    if(v.x<0||v.y<0||v.x>current.w||v.y>current.h) warnings.push({sev:'err', title:`Via ${i+1} outside board`, detail:'Via falls outside the board outline.'});
+  });
+  // traces crossing edge
+  current.traces.forEach((t,i)=>{
+    [[t.x1,t.y1],[t.x2,t.y2]].forEach(([x,y])=>{
+      if(x<0||y<0||x>current.w||y>current.h) warnings.push({sev:'warn', title:`Trace ${i+1} exits board outline`, detail:'One endpoint lies outside the board.'});
+    });
+  });
+  // trace width sanity
+  current.traces.forEach((t,i)=>{ if(t.w<0.15) warnings.push({sev:'warn', title:`Trace ${i+1} very thin (${t.w}mm)`, detail:'Below typical fab minimum of 0.15mm.'}); });
+
+  const uniqueWarnings = warnings;
+  showSheet(`
+    <div class="sheet-head"><h2>Check design</h2></div>
+    <div class="sheet-body">
+      ${uniqueWarnings.length===0? `<div class="warn-row"><div class="warn-dot ok"></div><div class="wtext"><strong>No issues found</strong><span>${current.parts.length} parts, ${current.traces.length} traces, ${current.vias.length} vias checked.</span></div></div>`
+      : uniqueWarnings.map(w=>`<div class="warn-row"><div class="warn-dot ${w.sev==='warn'?'':''}" style="background:${w.sev==='warn'?'#e0a53f':'var(--red)'}"></div>
+        <div class="wtext"><strong>${esc(w.title)}</strong><span>${esc(w.detail)}</span></div></div>`).join('')}
+    </div>
+    <div class="sheet-foot"><button class="btn full" onclick="closeModal()">Close</button></div>`);
+}
+
+/* ---------- board info ---------- */
+function openBoardInfo(){
+  const area = MM(current.w*current.h/100); // cm^2
+  showSheet(`
+    <div class="sheet-head"><h2>Board info</h2></div>
+    <div class="sheet-body">
+      <div class="info-row"><span>Board size</span><span>${current.w} × ${current.h} mm</span></div>
+      <div class="info-row"><span>Board area</span><span>${area} cm²</span></div>
+      <div class="info-row"><span>Grid</span><span>${current.grid} mm</span></div>
+      <div class="info-row"><span>Default trace width</span><span>${current.traceWidth} mm</span></div>
+      <div class="info-row"><span>Footprints</span><span>${current.parts.length}</span></div>
+      <div class="info-row"><span>Traces</span><span>${current.traces.length}</span></div>
+      <div class="info-row"><span>Vias</span><span>${current.vias.length}</span></div>
+      <div class="info-row"><span>Text labels</span><span>${(current.texts||[]).length}</span></div>
+      <div class="info-row"><span>Created</span><span>${new Date(current.created).toLocaleDateString()}</span></div>
+      <div class="info-row"><span>Last updated</span><span>${new Date(current.updated).toLocaleString()}</span></div>
+    </div>
+    <div class="sheet-foot"><button class="btn full" onclick="closeModal()">Close</button></div>`);
+}
+
+/* =========================== KICAD EXPORT =========================== */
+function kicadFootprintSexpr(p){
+  const def = FP_LIB[p.type];
+  const pads = fpPads(def);
+  let s = `  (footprint "KiPad:${p.type}" (layer "F.Cu")\n    (at ${MM(p.x)} ${MM(p.y)} ${p.rot||0})\n`;
+  s += `    (fp_text reference "${p.ref}" (at 0 ${-def.body.h/2-2}) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))\n`;
+  s += `    (fp_text value "${p.type}" (at 0 ${def.body.h/2+2}) (layer "F.Fab") (effects (font (size 1 1) (thickness 0.15))))\n`;
+  if(!def.body.disc) s += `    (fp_line (start ${-def.body.w/2} ${-def.body.h/2}) (end ${def.body.w/2} ${-def.body.h/2}) (layer "F.SilkS") (width 0.12))\n`;
+  pads.forEach(pad=>{
+    const shape = pad.round?'circle':'rect';
+    s += `    (pad "${pad.n}" smd ${shape} (at ${MM(pad.x)} ${MM(pad.y)}) (size ${MM(pad.w)} ${MM(pad.h)}) (layers "F.Cu" "F.Paste" "F.Mask"))\n`;
+  });
+  s += `  )\n`;
+  return s;
+}
+function generateKicadPcb(){
+  let s = `(kicad_pcb (version 20221018) (generator "kipad_studio")\n\n`;
+  s += `  (general (thickness 1.6))\n  (paper "A4")\n`;
+  s += `  (layers\n    (0 "F.Cu" signal)\n    (31 "B.Cu" signal)\n    (34 "F.SilkS" user)\n    (35 "B.SilkS" user)\n    (36 "Edge.Cuts" user)\n  )\n\n`;
+  s += `  (setup (grid_origin 0 0))\n\n`;
+  s += `  (net 0 "")\n\n`;
+  // board outline
+  s += `  (gr_rect (start 0 0) (end ${MM(current.w)} ${MM(current.h)}) (layer "Edge.Cuts") (width 0.1))\n\n`;
+  current.parts.forEach(p=>{ s += kicadFootprintSexpr(p); });
+  current.traces.forEach(t=>{
+    s += `  (segment (start ${MM(t.x1)} ${MM(t.y1)}) (end ${MM(t.x2)} ${MM(t.y2)}) (width ${MM(t.w)}) (layer "${t.layer}") (net 0))\n`;
+  });
+  current.vias.forEach(v=>{
+    s += `  (via (at ${MM(v.x)} ${MM(v.y)}) (size ${MM(v.size)}) (drill ${MM(v.drill)}) (layers "F.Cu" "B.Cu") (net 0))\n`;
+  });
+  (current.texts||[]).forEach(t=>{
+    s += `  (gr_text "${t.text.replace(/"/g,'')}" (at ${MM(t.x)} ${MM(t.y)}) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))\n`;
+  });
+  s += `)\n`;
+  return s;
+}
+function generateKicadPro(){
+  const proj = {
+    board: { design_settings: { defaults: { board_outline_line_width: 0.1 } } },
+    meta: { filename: current.name+".kicad_pro", version: 1 },
+    net_settings: { classes: [{ name:"Default", trace_width: current.traceWidth, clearance: 0.2 }] },
+    boards: [], sheets: [], text_variables: {}
+  };
+  return JSON.stringify(proj, null, 2);
+}
+const DOWNLOAD_ALLOWED_EXT = ['gif','png','jpg','jpeg','webp','mp4','webm','txt','json','md','docx','pptx','epub','csv','ttf','html','svg','pdf','xlsx','zip'];
+let _jszipLoading = null;
+function ensureJSZip(){
+  if(window.JSZip) return Promise.resolve();
+  if(_jszipLoading) return _jszipLoading;
+  _jszipLoading = new Promise((resolve, reject)=>{
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload = ()=>resolve();
+    s.onerror = ()=>reject(new Error('could not load zip library'));
+    document.head.appendChild(s);
+  });
+  return _jszipLoading;
+}
+function showTextDump(filename, text){
+  showSheet(`
+    <div class="sheet-head"><h2>${esc(filename)}</h2></div>
+    <div class="sheet-body">
+      <p class="note">Downloads aren't available in this view, so here's the raw file — select all and copy it into a text file named <b>${esc(filename)}</b>.</p>
+      <textarea id="dumpArea" readonly style="width:100%;height:260px;font-family:ui-monospace,monospace;font-size:11px;margin-top:10px;" onclick="this.select()">${esc(text)}</textarea>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn" onclick="closeModal()">Close</button>
+      <button class="btn primary" onclick="copyDump()">Copy</button>
+    </div>`);
+}
+function copyDump(){
+  const el = document.getElementById('dumpArea');
+  el.select();
+  if(navigator.clipboard){ navigator.clipboard.writeText(el.value).then(()=>toast('Copied')).catch(()=>toast('Select the text and copy manually')); }
+  else { try{ document.execCommand('copy'); toast('Copied'); }catch(e){ toast('Select the text and copy manually'); } }
+}
+function browserDownload(filename, data){
+  const blob = data instanceof Blob ? data : new Blob([data], {type:'application/octet-stream'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  toast('Saved '+filename);
+}
+async function downloadFile(filename, text){
+  const ext = (filename.split('.').pop()||'').toLowerCase();
+  const inClaude = (typeof claude !== 'undefined' && !!claude.use);
+  try{
+    if(!inClaude){
+      // Standalone (e.g. deployed on Vercel) — no extension restriction, use a normal browser download.
+      browserDownload(filename, text);
+      return;
+    }
+    const dl = await claude.use('downloads');
+    if(!dl) throw {code:'unavailable'};
+
+    if(DOWNLOAD_ALLOWED_EXT.includes(ext)){
+      const res = await dl.save({filename, data:text});
+      toast(res.status==='saved' ? 'Saved '+filename : 'Sent '+filename);
+      return;
+    }
+    // Extension not on the platform's allowlist (e.g. .kicad_pcb, .kicad_pro, .js) —
+    // wrap it in a .zip (which is allowed) so the real filename/extension survives inside.
+    await ensureJSZip();
+    const zip = new window.JSZip();
+    zip.file(filename, text);
+    const blob = await zip.generateAsync({type:'blob'});
+    const zipName = filename.replace(/\.[^.]+$/, '') + '.zip';
+    const res = await dl.save({filename: zipName, data: blob});
+    toast((res.status==='saved'?'Saved ':'Sent ')+zipName+' — unzip to get '+filename);
+  }catch(e){
+    const code = e && e.code;
+    if(code==='declined'){ toast('Download cancelled'); return; }
+    if(code==='rate_limited'){ toast('A save prompt is already open — try again in a moment'); return; }
+    if(code==='too_large'){ toast('That file is too large to save here'); return; }
+    try{ browserDownload(filename, text); }catch(e2){ showTextDump(filename, text); }
+  }
+}
+function exportKicadPcb(){ closeModal(); downloadFile((current.name||'board')+'.kicad_pcb', generateKicadPcb()); }
+function exportKicadPro(){ closeModal(); downloadFile((current.name||'board')+'.kicad_pro', generateKicadPro()); }
+
+/* ---------- import (best-effort: our own exported JSON, or a fresh blank from a real .kicad_pcb) ---------- */
+function triggerImport(){ document.getElementById('importFile').click(); }
+function handleImportFile(ev){
+  const f = ev.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      if(f.name.endsWith('.json')){
+        const b = JSON.parse(reader.result);
+        b.id = uid(); b.updated=Date.now(); boards.push(b); saveBoards(boards); renderHome();
+        toast('Imported '+b.name);
+      } else {
+        // Minimal best-effort read of a real .kicad_pcb: pull board outline size and footprint count only.
+        const txt = reader.result;
+        const outline = /\(gr_rect \(start ([\d.\-]+) ([\d.\-]+)\) \(end ([\d.\-]+) ([\d.\-]+)\)/.exec(txt);
+        const w = outline? MM(parseFloat(outline[3])-parseFloat(outline[1])) : 100;
+        const h = outline? MM(parseFloat(outline[4])-parseFloat(outline[2])) : 80;
+        const b = {id:uid(), name:(f.name.replace('.kicad_pcb','')||'imported'), w, h, created:Date.now(), updated:Date.now(),
+          grid:1, traceWidth:0.25, parts:[], traces:[], vias:[], texts:[]};
+        boards.push(b); saveBoards(boards); renderHome();
+        toast('Imported board outline — full KiCad parsing of arbitrary files is limited in this prototype.');
+      }
+    }catch(e){ toast('Could not read that file.'); }
+  };
+  reader.readAsText(f);
+  ev.target.value='';
+}
+
+/* =========================== GITHUB SYNC =========================== */
+function refreshGhBanner(){
+  const dot = document.getElementById('ghDot'), txt = document.getElementById('ghBannerText'), banner=document.getElementById('ghBanner');
+  if(gh.token && gh.login){
+    banner.classList.add('connected');
+    txt.textContent = `Connected as ${gh.login}${gh.repo?(' · '+gh.owner+'/'+gh.repo):''}`;
+  } else {
+    banner.classList.remove('connected');
+    txt.textContent = 'GitHub not connected — tap to link your account';
+  }
+}
+let ghTab = 'token';
+let ghProxyUrl = localStorage.getItem('kipad_gh_proxy')||'';
+function openGithubPanel(intent){
+  ghTab = gh.token ? 'push' : 'token';
+  renderGithubPanel(intent);
+}
+function renderGithubPanel(intent){
+  const connected = !!(gh.token && gh.login);
+  showSheet(`
+    <div class="sheet-head"><h2>GitHub</h2>
+      <div class="gh-tabs">
+        <div class="gh-tab ${ghTab==='token'?'active':''}" onclick="ghTab='token';renderGithubPanel()">Token</div>
+        <div class="gh-tab ${ghTab==='device'?'active':''}" onclick="ghTab='device';renderGithubPanel()">Device login</div>
+        ${connected?`<div class="gh-tab ${ghTab==='push'?'active':''}" onclick="ghTab='push';renderGithubPanel()">Repo</div>`:''}
+      </div>
+    </div>
+    <div class="sheet-body" id="ghBody"></div>
+    <div class="sheet-foot"><button class="btn full" onclick="closeModal()">Close</button></div>`);
+  const body = document.getElementById('ghBody');
+  if(ghTab==='token') body.innerHTML = ghTokenTabHtml();
+  if(ghTab==='device') body.innerHTML = ghDeviceTabHtml();
+  if(ghTab==='push') body.innerHTML = ghPushTabHtml(intent);
+}
+function ghTokenTabHtml(){
+  const connected = !!(gh.token && gh.login);
+  return `
+    ${connected?`<div class="gh-user"><div class="gh-avatar">${(gh.login||'?')[0].toUpperCase()}</div>
+      <div><b>${esc(gh.login)}</b><span>Personal access token connected</span></div></div>
+      <button class="btn danger full" onclick="ghDisconnect()">Disconnect</button>`
+    : `<label class="field-label">Personal access token</label>
+       <input type="password" id="ghPat" placeholder="ghp_...">
+       <p class="note">Create one at github.com → Settings → Developer settings → Fine-grained tokens, with Contents: Read and write on the repo you want to sync to. The token is stored only in this browser's local storage — it never leaves your device except in direct calls to api.github.com.</p>
+       <button class="btn primary full" style="margin-top:14px;" onclick="ghConnectToken()">Connect</button>
+       <div class="term hidden" id="ghTermToken"></div>`}
+  `;
+}
+function ghDeviceTabHtml(){
+  return `
+    <p class="note">GitHub's own device-authorization endpoints don't allow browser calls directly (no CORS), so this needs a tiny relay you host — the same pattern GitHub's CLI uses, just moved to a small serverless function. Point this at your relay's base URL and app-style sign-in works exactly like the token flow, without pasting a token.</p>
+    <label class="field-label">Relay base URL (optional)</label>
+    <input type="text" id="ghProxy" placeholder="https://your-worker.example.workers.dev" value="${esc(ghProxyUrl)}">
+    <button class="btn primary full" style="margin-top:14px;" onclick="ghStartDevice()">Start device login</button>
+    <div class="term hidden" id="ghTermDevice"></div>
+    <button class="btn full" style="margin-top:10px;" onclick="downloadRelayWorker()">Download relay code (Cloudflare Worker)</button>
+  `;
+}
+function ghPushTabHtml(intent){
+  return `
+    <div class="gh-user"><div class="gh-avatar">${(gh.login||'?')[0].toUpperCase()}</div><div><b>${esc(gh.login)}</b><span>Signed in</span></div></div>
+    <label class="field-label">Repository (owner/name)</label>
+    <input type="text" id="ghRepo" placeholder="yourname/pcb-boards" value="${esc((gh.owner&&gh.repo)?gh.owner+'/'+gh.repo:'')}">
+    <label class="field-label">Branch</label>
+    <input type="text" id="ghBranch" placeholder="main" value="${esc(gh.branch||'main')}">
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn primary" onclick="ghPush()">Push board</button>
+      <button class="btn" onclick="ghPull()">Pull board</button>
+    </div>
+    <div class="term hidden" id="ghTermPush"></div>
+  `;
+}
+function ghDisconnect(){ gh={}; saveGh(gh); refreshGhBanner(); renderGithubPanel(); toast('Disconnected'); }
+
+function termLine(elId, line, cls){
+  const el = document.getElementById(elId); if(!el) return;
+  el.classList.remove('hidden');
+  const span = document.createElement('div'); if(cls) span.className=cls; span.textContent=line;
+  el.appendChild(span); el.scrollTop = el.scrollHeight;
+}
+
+async function ghConnectToken(){
+  const token = document.getElementById('ghPat').value.trim();
+  if(!token){ toast('Paste a token first'); return; }
+  termLine('ghTermToken', '$ verifying token against api.github.com/user', 't-cmd');
+  try{
+    const res = await fetch('https://api.github.com/user', {headers:{'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json'}});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    gh = {token, login: data.login};
+    saveGh(gh);
+    termLine('ghTermToken', `✓ authenticated as ${data.login}`);
+    refreshGhBanner();
+    setTimeout(()=>{ ghTab='push'; renderGithubPanel(); }, 500);
+  }catch(e){
+    termLine('ghTermToken', '✗ '+e.message+' — check the token and its scopes', 't-err');
+  }
+}
+
+async function ghStartDevice(){
+  ghProxyUrl = document.getElementById('ghProxy').value.trim();
+  localStorage.setItem('kipad_gh_proxy', ghProxyUrl);
+  if(!ghProxyUrl){
+    termLine('ghTermDevice', '✗ no relay URL set — download the relay code below and deploy it, or use the Token tab instead.', 't-err');
+    return;
+  }
+  termLine('ghTermDevice', '$ POST '+ghProxyUrl+'/device/code', 't-cmd');
+  try{
+    const res = await fetch(ghProxyUrl.replace(/\/$/,'')+'/device/code', {method:'POST'});
+    if(!res.ok) throw new Error('relay returned HTTP '+res.status);
+    const data = await res.json();
+    termLine('ghTermDevice', `→ go to ${data.verification_uri} and enter code ${data.user_code}`);
+    if(navigator.clipboard) navigator.clipboard.writeText(data.user_code).catch(()=>{});
+    termLine('ghTermDevice', '(code copied — polling for approval…)', 't-dim');
+    pollDevice(data.device_code, data.interval||5);
+  }catch(e){
+    termLine('ghTermDevice', '✗ '+e.message, 't-err');
+  }
+}
+async function pollDevice(deviceCode, interval){
+  const el = 'ghTermDevice';
+  const tick = async ()=>{
+    try{
+      const res = await fetch(ghProxyUrl.replace(/\/$/,'')+'/device/poll', {
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({device_code: deviceCode})
+      });
+      const data = await res.json();
+      if(data.access_token){
+        termLine(el, '✓ device authorized');
+        const userRes = await fetch('https://api.github.com/user', {headers:{'Authorization':'Bearer '+data.access_token}});
+        const user = await userRes.json();
+        gh = {token:data.access_token, login:user.login};
+        saveGh(gh); refreshGhBanner();
+        termLine(el, `✓ signed in as ${user.login}`);
+        setTimeout(()=>{ ghTab='push'; renderGithubPanel(); }, 600);
+        return;
+      }
+      if(data.error && data.error!=='authorization_pending'){
+        termLine(el, '✗ '+data.error, 't-err'); return;
+      }
+      setTimeout(tick, interval*1000);
+    }catch(e){ termLine(el, '✗ '+e.message, 't-err'); }
+  };
+  setTimeout(tick, interval*1000);
+}
+function downloadRelayWorker(){
+  const code = `// KiPad Studio — GitHub device-flow relay (Cloudflare Worker)
+// Deploy this with 'wrangler deploy', then set GH_CLIENT_ID as a secret/binding.
+// It exists only because github.com's OAuth endpoints don't send CORS headers
+// for browser-based calls — this worker just forwards the two requests server-side.
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type" };
+    if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+
+    if (url.pathname === "/device/code" && req.method === "POST") {
+      const r = await fetch("https://github.com/login/device/code", {
+        method: "POST",
+        headers: { "Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ client_id: env.GH_CLIENT_ID, scope: "repo" })
+      });
+      const data = await r.json();
+      return new Response(JSON.stringify(data), { headers: { ...cors, "Content-Type": "application/json" } });
+    }
+
+    if (url.pathname === "/device/poll" && req.method === "POST") {
+      const { device_code } = await req.json();
+      const r = await fetch("https://github.com/login/oauth/access_token", {
+        method: "POST",
+        headers: { "Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: env.GH_CLIENT_ID,
+          device_code,
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code"
+        })
+      });
+      const data = await r.json();
+      return new Response(JSON.stringify(data), { headers: { ...cors, "Content-Type": "application/json" } });
+    }
+
+    return new Response("Not found", { status: 404, headers: cors });
+  }
+};
+`;
+  downloadFile('kipad-github-relay-worker.js', code);
+}
+
+async function ghApi(path, opts){
+  return fetch('https://api.github.com'+path, Object.assign({}, opts, {
+    headers: Object.assign({'Authorization':'Bearer '+gh.token, 'Accept':'application/vnd.github+json'}, (opts&&opts.headers)||{})
+  }));
+}
+function b64EncodeUtf8(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64DecodeUtf8(str){ return decodeURIComponent(escape(atob(str))); }
+
+async function ghPush(){
+  const repoStr = document.getElementById('ghRepo').value.trim();
+  const branch = document.getElementById('ghBranch').value.trim()||'main';
+  const [owner, repo] = repoStr.split('/');
+  if(!owner||!repo){ toast('Enter owner/repo'); return; }
+  gh.owner=owner; gh.repo=repo; gh.branch=branch; saveGh(gh);
+  const base = `boards/${current.name}`;
+  const files = [
+    {path:`${base}.kicad_pcb`, content: generateKicadPcb()},
+    {path:`${base}.json`, content: JSON.stringify(current, null, 2)},
+  ];
+  termLine('ghTermPush', `$ push → ${owner}/${repo}@${branch}`, 't-cmd');
+  for(const f of files){
+    try{
+      termLine('ghTermPush', `→ GET /repos/${owner}/${repo}/contents/${f.path}`);
+      let sha;
+      const getRes = await ghApi(`/repos/${owner}/${repo}/contents/${f.path}?ref=${branch}`);
+      if(getRes.ok){ const d = await getRes.json(); sha = d.sha; }
+      termLine('ghTermPush', `→ PUT /repos/${owner}/${repo}/contents/${f.path}`);
+      const putRes = await ghApi(`/repos/${owner}/${repo}/contents/${f.path}`, {
+        method:'PUT',
+        body: JSON.stringify({
+          message: `Update ${f.path} via KiPad Studio`,
+          content: b64EncodeUtf8(f.content),
+          branch, sha
+        })
+      });
+      if(!putRes.ok){ const err = await putRes.json().catch(()=>({})); throw new Error(err.message||('HTTP '+putRes.status)); }
+      const putData = await putRes.json();
+      termLine('ghTermPush', `✓ committed ${f.path}  (${putData.commit && putData.commit.sha ? putData.commit.sha.slice(0,7) : 'ok'})`);
+    }catch(e){
+      termLine('ghTermPush', `✗ ${f.path}: ${e.message}`, 't-err');
+    }
+  }
+  termLine('ghTermPush', 'done.', 't-dim');
+}
+async function ghPull(){
+  const repoStr = document.getElementById('ghRepo').value.trim();
+  const branch = document.getElementById('ghBranch').value.trim()||'main';
+  const [owner, repo] = repoStr.split('/');
+  if(!owner||!repo){ toast('Enter owner/repo'); return; }
+  gh.owner=owner; gh.repo=repo; gh.branch=branch; saveGh(gh);
+  const path = `boards/${current.name}.json`;
+  termLine('ghTermPush', `$ pull ← ${owner}/${repo}/${path}@${branch}`, 't-cmd');
+  try{
+    const res = await ghApi(`/repos/${owner}/${repo}/contents/${path}?ref=${branch}`);
+    if(!res.ok) throw new Error('HTTP '+res.status+' — file not found on that branch');
+    const data = await res.json();
+    const board = JSON.parse(b64DecodeUtf8(data.content));
+    board.id = current.id; board.updated = Date.now();
+    current = board;
+    termLine('ghTermPush', `✓ pulled ${path}`);
+    markDirty(); closeModal(); renderCanvas(); renderLayerTabs();
+    document.getElementById('edBoardName').textContent = current.name;
+  }catch(e){
+    termLine('ghTermPush', '✗ '+e.message, 't-err');
+  }
+}
+
+/* =========================== MODAL SYSTEM =========================== */
+function showSheet(html, opts){
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = `<div class="overlay ${opts&&opts.center?'center':''}" onclick="if(event.target===this) closeModal()">
+    <div class="sheet"><div class="sheet-handle"></div>${html}</div></div>`;
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+let _confirmCb = null;
+function confirmDialog(title, msg, onYes){
+  _confirmCb = onYes;
+  showSheet(`<div class="sheet-head"><h2>${esc(title)}</h2></div>
+    <div class="sheet-body"><p style="color:var(--text-dim);font-size:14px;line-height:1.5;">${esc(msg)}</p></div>
+    <div class="sheet-foot"><button class="btn" onclick="closeModal()">Cancel</button>
+    <button class="btn danger" style="flex:1;background:var(--panel2);" onclick="runConfirmCb()">Delete</button></div>`, {center:true});
+}
+function runConfirmCb(){ closeModal(); if(_confirmCb) _confirmCb(); _confirmCb=null; }
+
+/* =========================== boot =========================== */
+window.addEventListener('resize', ()=>{ if(document.getElementById('editorScreen').classList.contains('active')) renderCanvas(); });
+renderHome();
+</script>
+</body>
+</html>
